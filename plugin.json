@@ -1,0 +1,11 @@
+{
+  "Group": "Payment methods",
+  "FriendlyName": "ETransactions / Up2Pay",
+  "SystemName": "Payments.ETransactions",
+  "Version": "4.90.1",
+  "SupportedVersions": [ "4.90" ],
+  "Author": "Nevoweb",
+  "DisplayOrder": 1,
+  "FileName": "Nevoweb.ETransactions.dll",
+  "Description": "ETransactions / Up2Pay payment gateway integration for nopCommerce"
+}

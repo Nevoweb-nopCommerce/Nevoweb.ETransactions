@@ -1,0 +1,72 @@
+@model Nevoweb.ETransactions.Models.ConfigurationModel
+@{
+    Layout = "_ConfigurePlugin";
+}
+
+@await Component.InvokeAsync(typeof(StoreScopeConfigurationViewComponent))
+<form asp-controller="PaymentETransactions" asp-action="Configure" method="post">
+    <div class="cards-group">
+        <div class="card card-default">
+            <div class="card-body">
+                <div class="form-group row">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="DescriptionText_OverrideForStore" asp-input="DescriptionText" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="DescriptionText" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="DescriptionText" />
+                        <span asp-validation-for="DescriptionText"></span>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="AdditionalFee_OverrideForStore" asp-input="AdditionalFee" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="AdditionalFee" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="AdditionalFee" />
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="AdditionalFeePercentage_OverrideForStore" asp-input="AdditionalFeePercentage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="AdditionalFeePercentage" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="AdditionalFeePercentage" />
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="ShippableProductRequired_OverrideForStore" asp-input="ShippableProductRequired" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="ShippableProductRequired" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="ShippableProductRequired" />
+                    </div>
+                </div>
+
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="PbxSite_OverrideForStore" asp-input="PbxSite" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="PbxSite" /></div><div class="col-md-9"><nop-editor asp-for="PbxSite" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="PbxRang_OverrideForStore" asp-input="PbxRang" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="PbxRang" /></div><div class="col-md-9"><nop-editor asp-for="PbxRang" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="PbxDevise_OverrideForStore" asp-input="PbxDevise" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="PbxDevise" /></div><div class="col-md-9"><nop-editor asp-for="PbxDevise" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="PbxIdentifiant_OverrideForStore" asp-input="PbxIdentifiant" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="PbxIdentifiant" /></div><div class="col-md-9"><nop-editor asp-for="PbxIdentifiant" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="PbxRetour_OverrideForStore" asp-input="PbxRetour" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="PbxRetour" /></div><div class="col-md-9"><nop-editor asp-for="PbxRetour" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="ReserveOnly_OverrideForStore" asp-input="ReserveOnly" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="ReserveOnly" /></div><div class="col-md-9"><nop-editor asp-for="ReserveOnly" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="HmacKey_OverrideForStore" asp-input="HmacKey" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="HmacKey" /></div><div class="col-md-9"><nop-editor asp-for="HmacKey" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="MainUrl_OverrideForStore" asp-input="MainUrl" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="MainUrl" /></div><div class="col-md-9"><nop-editor asp-for="MainUrl" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="BackupUrl_OverrideForStore" asp-input="BackupUrl" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="BackupUrl" /></div><div class="col-md-9"><nop-editor asp-for="BackupUrl" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="PreprodUrl_OverrideForStore" asp-input="PreprodUrl" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="PreprodUrl" /></div><div class="col-md-9"><nop-editor asp-for="PreprodUrl" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="Preproduction_OverrideForStore" asp-input="Preproduction" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="Preproduction" /></div><div class="col-md-9"><nop-editor asp-for="Preproduction" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="DebugMode_OverrideForStore" asp-input="DebugMode" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="DebugMode" /></div><div class="col-md-9"><nop-editor asp-for="DebugMode" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="ValidateSourceIp_OverrideForStore" asp-input="ValidateSourceIp" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="ValidateSourceIp" /></div><div class="col-md-9"><nop-editor asp-for="ValidateSourceIp" /></div></div>
+                <div class="form-group row"><div class="col-md-3"><nop-override-store-checkbox asp-for="AllowedIps_OverrideForStore" asp-input="AllowedIps" asp-store-scope="@Model.ActiveStoreScopeConfiguration" /><nop-label asp-for="AllowedIps" /></div><div class="col-md-9"><nop-editor asp-for="AllowedIps" /></div></div>
+
+                <div class="form-group row">
+                    <div class="col-md-9 offset-md-3">
+                        <button type="submit" name="save" class="btn btn-primary">@T("Admin.Common.Save")</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

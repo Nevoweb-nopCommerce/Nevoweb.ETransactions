@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <NopRootDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</NopRootDir>
+    <PluginDirectoryName>Payments.ETransactions</PluginDirectoryName>
+    <OutputPath>$(NopRootDir)Presentation\Nop.Web\Plugins\$(PluginDirectoryName)</OutputPath>
+    <OutDir>$(OutputPath)</OutDir>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)bin\Packages</PackageOutputPath>
+    <PackageTempPath>$(MSBuildThisFileDirectory)bin\PackageTemp</PackageTempPath>
+    <PackageFileName>Nevoweb.ETransactions.$(Configuration).zip</PackageFileName>
+    <PackageFilePath>$(PackageOutputPath)\$(PackageFileName)</PackageFilePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="plugin.json" />
+    <None Remove="Views\Configure.cshtml" />
+    <None Remove="Views\PaymentInfo.cshtml" />
+    <None Remove="Views\Redirect.cshtml" />
+    <None Remove="Views\_ViewImports.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="plugin.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Views\Configure.cshtml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Views\PaymentInfo.cshtml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Views\Redirect.cshtml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Views\_ViewImports.cshtml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(NopRootDir)Presentation\Nop.Web\Nop.Web.csproj" />
+    <ClearPluginAssemblies Include="$(NopRootDir)Build\ClearPluginAssemblies.proj" />
+  </ItemGroup>
+
+  <Target Name="NopTarget" AfterTargets="Build">
+    <MSBuild Projects="@(ClearPluginAssemblies)" Properties="PluginPath=$(OutDir)" Targets="NopClear" />
+  </Target>
+
+  <Target Name="PackagePlugin" DependsOnTargets="Build">
+    <MakeDir Directories="$(PackageOutputPath)" />
+    <RemoveDir Directories="$(PackageTempPath)" Condition="Exists('$(PackageTempPath)')" />
+    <MakeDir Directories="$(PackageTempPath)\$(PluginDirectoryName)" />
+
+    <ItemGroup>
+      <_PluginFiles Include="$(OutDir)**\*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_PluginFiles)"
+          DestinationFiles="@(_PluginFiles->'$(PackageTempPath)\$(PluginDirectoryName)\%(RecursiveDir)%(Filename)%(Extension)')" />
+
+    <Delete Files="$(PackageFilePath)" Condition="Exists('$(PackageFilePath)')" />
+    <ZipDirectory SourceDirectory="$(PackageTempPath)" DestinationFile="$(PackageFilePath)" />
+    <Message Text="Plugin package created: $(PackageFilePath)" Importance="high" />
+  </Target>
+
+</Project>

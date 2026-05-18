@@ -1,0 +1,20 @@
+@model Nevoweb.ETransactions.Models.ETransactionsRedirectModel
+@{
+    Layout = "";
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>ETransactions / Up2Pay</title>
+</head>
+<body onload="document.forms[0].submit();">
+    <form method="post" action="@Model.PostUrl">
+        @foreach (var input in Model.Inputs)
+        {
+            <input type="hidden" name="@input.Key" value="@input.Value" />
+        }
+    </form>
+    <p>Redirecting to ETransactions / Up2Pay...</p>
+</body>
+</html>
