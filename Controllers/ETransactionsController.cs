@@ -10,6 +10,7 @@ using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Web.Controllers;
 using Nop.Web.Framework.Mvc.Filters;
+using Nop.Services.Catalog;
 
 namespace Nevoweb.ETransactions.Controllers;
 
@@ -19,6 +20,8 @@ public class ETransactionsController : BasePublicController
     private readonly INotificationService _notificationService;
     private readonly IOrderProcessingService _orderProcessingService;
     private readonly IOrderService _orderService;
+    private readonly IProductService _productService;
+    private readonly IShoppingCartService _shoppingCartService;
     private readonly ETransactionsRequestBuilder _eTransactionsRequestBuilder;
     private readonly ETransactionsPaymentSettings _settings;
     private readonly ISettingService _settingService;
@@ -29,6 +32,8 @@ public class ETransactionsController : BasePublicController
         INotificationService notificationService,
         IOrderProcessingService orderProcessingService,
         IOrderService orderService,
+        IProductService productService,
+        IShoppingCartService shoppingCartService,
         ETransactionsRequestBuilder eTransactionsRequestBuilder,
         ETransactionsPaymentSettings settings,
         ISettingService settingService,
@@ -39,6 +44,8 @@ public class ETransactionsController : BasePublicController
         _notificationService = notificationService;
         _orderProcessingService = orderProcessingService;
         _orderService = orderService;
+        _productService = productService;
+        _shoppingCartService = shoppingCartService;
         _eTransactionsRequestBuilder = eTransactionsRequestBuilder;
         _settings = settings;
         _settingService = settingService;
@@ -95,6 +102,29 @@ public class ETransactionsController : BasePublicController
 
         if (status == 0)
         {
+            var customer = await _workContext.GetCurrentCustomerAsync();
+            var store = await _storeContext.GetCurrentStoreAsync();
+
+            // Restore cart items before cancelling the order
+            var orderItems = await _orderService.GetOrderItemsAsync(order.Id);
+            foreach (var item in orderItems)
+            {
+                var product = await _productService.GetProductByIdAsync(item.ProductId);
+                if (product is null)
+                    continue;
+
+                await _shoppingCartService.AddToCartAsync(
+                    customer,
+                    product,
+                    ShoppingCartType.ShoppingCart,
+                    store.Id,
+                    item.AttributesXml,
+                    item.UnitPriceExclTax,
+                    item.RentalStartDateUtc,
+                    item.RentalEndDateUtc,
+                    item.Quantity);
+            }
+
             if (_orderProcessingService.CanCancelOrder(order))
                 await _orderProcessingService.CancelOrderAsync(order, false);
 
