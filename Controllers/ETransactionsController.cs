@@ -94,8 +94,15 @@ public class ETransactionsController : BasePublicController
             return RedirectToRoute(ETransactionsPaymentDefaults.Route.HomePage);
 
         if (status == 0)
+        {
+            if (_orderProcessingService.CanCancelOrder(order))
+                await _orderProcessingService.CancelOrderAsync(order, false);
+
             _notificationService.ErrorNotification(await _localizationService.GetResourceAsync("Plugins.Payment.ETransactions.PaymentFailed"));
-        else if (order.PaymentStatus != PaymentStatus.Paid)
+            return RedirectToRoute(ETransactionsPaymentDefaults.Route.ShoppingCart);
+        }
+
+        if (order.PaymentStatus != PaymentStatus.Paid)
             _notificationService.WarningNotification(await _localizationService.GetResourceAsync("Plugins.Payment.ETransactions.PaymentPending"));
 
         return RedirectToRoute(ETransactionsPaymentDefaults.Route.CheckoutCompleted, new { orderId });

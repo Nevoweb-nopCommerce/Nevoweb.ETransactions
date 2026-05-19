@@ -12,5 +12,6 @@ public static class ETransactionsPaymentDefaults
         public const string Notify = "Plugin.Payments.ETransactions.Notify";
         public const string HomePage = "Homepage";
         public const string CheckoutCompleted = "CheckoutCompleted";
+        public const string ShoppingCart = "ShoppingCart";
     }
 }

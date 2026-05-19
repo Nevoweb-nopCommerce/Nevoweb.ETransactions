@@ -1,3 +1,6 @@
+# WARNING: Do NOT use in production
+This plugin is still under development.
+
 # Nevoweb.ETransactions
 
 nopCommerce payment plugin for **ETransactions / Up2Pay** (PBX gateway).
