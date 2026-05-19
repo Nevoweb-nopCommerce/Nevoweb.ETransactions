@@ -57,6 +57,10 @@ public class ETransactionsRequestBuilder
         if (_settings.ReserveOnly)
             values["PBX_AUTOSEULE"] = "O";
 
+        // Disable 3DS in debug/preproduction mode so non-enrolled test cards (e.g. 4111111111111111) are accepted
+        if (_settings.Preproduction && _settings.DebugMode)
+            values["PBX_3DS"] = "N";
+
         values["PBX_HMAC"] = ComputeHmac(values, _settings.HmacKey);
 
         return (await GetPostUrlAsync(), values);

@@ -10,12 +10,17 @@ using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Web.Controllers;
 using Nop.Web.Framework.Mvc.Filters;
+using Nop.Core.Domain.Messages;
 using Nop.Services.Catalog;
+using Nop.Services.Logging;
 
 namespace Nevoweb.ETransactions.Controllers;
 
 public class ETransactionsController : BasePublicController
 {
+    private readonly ILogger _logger;
+    private readonly IEmailAccountService _emailAccountService;
+    private readonly IEmailSender _emailSender;
     private readonly ILocalizationService _localizationService;
     private readonly INotificationService _notificationService;
     private readonly IOrderProcessingService _orderProcessingService;
@@ -28,7 +33,10 @@ public class ETransactionsController : BasePublicController
     private readonly IStoreContext _storeContext;
     private readonly IWorkContext _workContext;
 
-    public ETransactionsController(ILocalizationService localizationService,
+    public ETransactionsController(ILogger logger,
+        IEmailAccountService emailAccountService,
+        IEmailSender emailSender,
+        ILocalizationService localizationService,
         INotificationService notificationService,
         IOrderProcessingService orderProcessingService,
         IOrderService orderService,
@@ -40,6 +48,9 @@ public class ETransactionsController : BasePublicController
         IStoreContext storeContext,
         IWorkContext workContext)
     {
+        _logger = logger;
+        _emailAccountService = emailAccountService;
+        _emailSender = emailSender;
         _localizationService = localizationService;
         _notificationService = notificationService;
         _orderProcessingService = orderProcessingService;
@@ -81,11 +92,16 @@ public class ETransactionsController : BasePublicController
 
         if (settings.DebugMode)
         {
+            var payload = string.Join("\n", values.Select(kv =>
+                kv.Key == "PBX_HMAC" ? $"  {kv.Key} = [hidden]" : $"  {kv.Key} = {kv.Value}"));
+            var debugNote = $"[ETransactions DEBUG] Redirect to bank\nURL: {postUrl}\nPayload:\n{payload}";
+
+            _logger.Information(debugNote);
             await _orderService.InsertOrderNoteAsync(new OrderNote
             {
                 OrderId = order.Id,
                 CreatedOnUtc = DateTime.UtcNow,
-                Note = $"ETransactions redirect generated. URL: {postUrl}; Payload keys: {string.Join(",", values.Keys)}",
+                Note = debugNote,
                 DisplayToCustomer = false
             });
         }
@@ -99,6 +115,19 @@ public class ETransactionsController : BasePublicController
         var order = await _orderService.GetOrderByIdAsync(orderId);
         if (order is null)
             return RedirectToRoute(ETransactionsPaymentDefaults.Route.HomePage);
+
+        if (_settings.DebugMode)
+        {
+            var returnNote = $"[ETransactions DEBUG] Customer return received\nOrder: #{orderId}\nStatus: {status} ({(status == 1 ? "SUCCESS" : "CANCELLED/REFUSED")})\nCurrent payment status: {order.PaymentStatus}";
+            _logger.Information(returnNote);
+            await _orderService.InsertOrderNoteAsync(new OrderNote
+            {
+                OrderId = order.Id,
+                CreatedOnUtc = DateTime.UtcNow,
+                Note = returnNote,
+                DisplayToCustomer = false
+            });
+        }
 
         if (status == 0)
         {
@@ -133,7 +162,11 @@ public class ETransactionsController : BasePublicController
         }
 
         if (order.PaymentStatus != PaymentStatus.Paid)
-            _notificationService.WarningNotification(await _localizationService.GetResourceAsync("Plugins.Payment.ETransactions.PaymentPending"));
+        {
+            // IPN has not been received yet — we cannot trust the browser return alone.
+            // Do NOT mark as paid. Flag the order and alert the admin for manual verification.
+            await RaiseIpnMissingAlertAsync(order);
+        }
 
         return RedirectToRoute(ETransactionsPaymentDefaults.Route.CheckoutCompleted, new { orderId });
     }
@@ -175,6 +208,20 @@ public class ETransactionsController : BasePublicController
         parameters.TryGetValue("trans", out var transactionId);
         parameters.TryGetValue("call", out var callNumber);
 
+        if (_settings.DebugMode)
+        {
+            var allParams = string.Join("\n", parameters.Select(kv => $"  {kv.Key} = {kv.Value}"));
+            var ipnNote = $"[ETransactions DEBUG] IPN/Notify received\nSource IP: {remoteIp}\nOrder: #{order.Id}\nParameters:\n{allParams}";
+            _logger.Information(ipnNote);
+            await _orderService.InsertOrderNoteAsync(new OrderNote
+            {
+                OrderId = order.Id,
+                CreatedOnUtc = DateTime.UtcNow,
+                Note = ipnNote,
+                DisplayToCustomer = false
+            });
+        }
+
         order.AuthorizationTransactionId = transactionId;
         order.AuthorizationTransactionCode = authorizationCode;
         order.AuthorizationTransactionResult = $"rtnerr={returnCode};call={callNumber}";
@@ -196,6 +243,9 @@ public class ETransactionsController : BasePublicController
             if (_orderProcessingService.CanMarkOrderAsPaid(order))
                 await _orderProcessingService.MarkOrderAsPaidAsync(order);
 
+            if (_settings.DebugMode)
+                _logger.Information($"[ETransactions DEBUG] IPN outcome: Order #{order.Id} marked as PAID (rtnerr=00000, auto={authorizationCode}, trans={transactionId})");
+
             return Content("OK", "text/plain");
         }
 
@@ -204,13 +254,79 @@ public class ETransactionsController : BasePublicController
             if (_orderProcessingService.CanMarkOrderAsAuthorized(order))
                 await _orderProcessingService.MarkAsAuthorizedAsync(order);
 
+            if (_settings.DebugMode)
+                _logger.Information($"[ETransactions DEBUG] IPN outcome: Order #{order.Id} marked as AUTHORIZED (rtnerr=99999, auto={authorizationCode}, trans={transactionId})");
+
             return Content("OK", "text/plain");
         }
 
         if (_orderProcessingService.CanCancelOrder(order))
             await _orderProcessingService.CancelOrderAsync(order, false);
 
+        if (_settings.DebugMode)
+            _logger.Warning($"[ETransactions DEBUG] IPN outcome: Order #{order.Id} CANCELLED/FAILED (rtnerr={returnCode}, auto={authorizationCode})");
+
         return Content("KO", "text/plain");
+    }
+
+    protected virtual async Task RaiseIpnMissingAlertAsync(Order order)
+    {
+        var store = await _storeContext.GetCurrentStoreAsync();
+        var adminUrl = $"{store.Url}Admin/Order/Edit/{order.Id}".Replace("//Admin", "/Admin");
+
+        var alertMessage =
+            $"⚠️ SECURITY ALERT — ETransactions IPN not received for Order #{order.Id}\n\n" +
+            $"The customer browser returned a SUCCESS status from the payment gateway, " +
+            $"but the bank's server-to-server IPN notification was NOT received.\n\n" +
+            $"THIS ORDER MUST BE MANUALLY VERIFIED before processing or shipping.\n\n" +
+            $"Possible causes:\n" +
+            $"  • IPN delivery failed (firewall, timeout, server down at time of payment)\n" +
+            $"  • Fraudulent browser return manipulation attempt\n\n" +
+            $"Action required:\n" +
+            $"  1. Log into your Paybox/ETransactions merchant back-office\n" +
+            $"  2. Verify that a real transaction exists for order #{order.Id} (amount: {order.OrderTotal:C})\n" +
+            $"  3. If confirmed paid → manually mark the order as Paid in the admin\n" +
+            $"  4. If NOT found → cancel the order immediately\n\n" +
+            $"Order admin link: {adminUrl}";
+
+        // Write a highly visible order note
+        await _orderService.InsertOrderNoteAsync(new OrderNote
+        {
+            OrderId = order.Id,
+            CreatedOnUtc = DateTime.UtcNow,
+            Note = alertMessage,
+            DisplayToCustomer = false
+        });
+
+        // Log as Error so it appears red in Admin → System → Log
+        _logger.Error($"[ETransactions] ⚠️ SECURITY ALERT — IPN missing for Order #{order.Id}. Payment status unverified. Manual check required.\n\n{alertMessage}");
+
+        // Send alert email to the store owner using the default email account
+        try
+        {
+            var emailAccount = await _emailAccountService.GetEmailAccountByIdAsync(
+                (await _settingService.LoadSettingAsync<EmailAccountSettings>(store.Id)).DefaultEmailAccountId)
+                ?? (await _emailAccountService.GetAllEmailAccountsAsync()).FirstOrDefault();
+
+            if (emailAccount is not null)
+            {
+                var subject = $"⚠️ ACTION REQUIRED — Unverified payment for Order #{order.Id} [{store.Name}]";
+                var body = alertMessage.Replace("\n", "<br/>");
+
+                await _emailSender.SendEmailAsync(
+                    emailAccount,
+                    subject,
+                    body,
+                    emailAccount.Email,
+                    emailAccount.DisplayName,
+                    emailAccount.Email,
+                    store.Name);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"[ETransactions] Failed to send IPN-missing alert email for Order #{order.Id}: {ex.Message}", ex);
+        }
     }
 
     protected virtual bool IsAllowedIp(string remoteIp, string allowedIps)

@@ -66,6 +66,65 @@ The plugin uses these routes:
 
 Make sure your environment allows gateway callbacks to the notify URL.
 
+## Pre-production test cards
+
+These card numbers are valid on the **pre-production platform** for shared test accounts and for merchant accounts whose acquirer is a French bank. You may also use your own personal card on the test platform — it will not be charged.
+
+> ℹ️ Source: *Verifone Solutions Paybox VAD / e-Commerce – Paramètres de test v8.0*
+> ⚠️ Expiry date and CVV are **not validated** on the test platform — any future date and matching CVV format will be accepted.
+
+### French Bank (CB)
+
+| Description | Card number | Expiry | CVV |
+|---|---|---|---|
+| Standard Paybox test card | `1111 2222 3333 4444` | 12/22 | 123 |
+| 3D-Secure enrolled card | `4012 0010 3714 1112` | 12/22 | 123 |
+| Non 3D-Secure card | `4012 0010 3844 3335` | 12/22 | 123 |
+
+### Atos Worldline (Belgium)
+
+| Description | Card number | Expiry | CVV |
+|---|---|---|---|
+| Belgian Visa | `4236 8615 8842 3130` | 12/22 | 123 |
+| Belgian Mastercard | `5476 8520 5684 3079` | 12/22 | 123 |
+| Belgian Maestro | `6703 1111 2222 3334` | 12/22 | N/A |
+
+### EMS
+
+| Description | Card number | Expiry | CVV |
+|---|---|---|---|
+| Visa | `4012 0010 3714 1112` | 12/22 | 123 |
+| Mastercard | `5135 1800 0000 001` | 12/22 | 123 |
+| Maestro | `6703 1111 2222 3334` | 12/22 | N/A |
+
+### Bancontact/Mistercash
+
+Testing is not currently possible on the pre-production platform.
+
+### American Express
+
+| Description | Card number | Expiry | CVV |
+|---|---|---|---|
+| American Express | `3749 0740 3001 005` | 12/22 | 1234 |
+
+### Sofinco
+
+| Description | Card number | Expiry | Personal code |
+|---|---|---|---|
+| Sofinco | `5049 7703 0000 0098 545` | 12/22 | 0825 |
+
+### JCB
+
+| Description | Card number | Expiry | CVV |
+|---|---|---|---|
+| JCB | `3569 9900 1200 0112` | 12/22 | 123 |
+
+**Pre-production checklist:**
+
+- Set `Preproduction = true` in plugin configuration.
+- Use your **Paybox pre-production credentials** for `PBX_SITE`, `PBX_RANG`, and `PBX_IDENTIFIANT` (not your production values).
+- Ensure `PreprodUrl` points to `https://preprod-tpeweb.paybox.com/`.
+
 ## Troubleshooting
 
 - **Upload error about archive structure**
