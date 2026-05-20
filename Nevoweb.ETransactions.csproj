@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -15,6 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="logo.png" />
     <None Remove="plugin.json" />
     <None Remove="Views\Configure.cshtml" />
     <None Remove="Views\PaymentInfo.cshtml" />
@@ -23,6 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="plugin.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -55,7 +59,7 @@
     <MakeDir Directories="$(PackageTempPath)\$(PluginDirectoryName)" />
 
     <ItemGroup>
-      <_PluginFiles Include="$(OutDir)**\*" />
+      <_PluginFiles Include="$(OutDir)**\*" Exclude="$(OutDir)Nop.Web.*" />
     </ItemGroup>
 
     <Copy SourceFiles="@(_PluginFiles)" DestinationFiles="@(_PluginFiles->'$(PackageTempPath)\$(PluginDirectoryName)\%(RecursiveDir)%(Filename)%(Extension)')" />
@@ -66,7 +70,7 @@
   </Target>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="iisreset /stop &#xA;copy /Y &quot;$(TargetPath)&quot; &quot;D:\NEVOWEB\Websites_admin.nevoweb.com\511977726.nevoweb\Website\Plugins\Payments.ETransactions\&quot; &#xA;iisreset /start &#xD;&#xA;" />
+    <Exec Command="iisreset /stop &#xD;&#xA;copy /Y &quot;$(TargetPath)&quot; &quot;D:\NEVOWEB\Websites_admin.nevoweb.com\511977726.nevoweb\Website\Plugins\Payments.ETransactions\&quot; &#xD;&#xA;iisreset /start&#xD;&#xA;" />
   </Target>
 
 </Project>
