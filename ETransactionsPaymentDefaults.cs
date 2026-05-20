@@ -4,6 +4,8 @@ public static class ETransactionsPaymentDefaults
 {
     public const string SystemName = "Payments.ETransactions";
 
+    public const string IpnMissingMessageTemplateName = "ETransactions.IpnMissingFraudAlert";
+
     public static class Route
     {
         public const string Configure = "Plugin.Payments.ETransactions.Configure";

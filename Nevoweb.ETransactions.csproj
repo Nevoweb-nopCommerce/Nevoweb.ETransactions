@@ -66,7 +66,7 @@
   </Target>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="iisreset /stop&#xA;copy /Y &quot;D:\NEVOWEB\Project\nopCommerce\src\Presentation\Nop.Web\Plugins\Payments.ETransactions\Nevoweb.ETransactions.dll&quot; &quot;D:\NEVOWEB\Websites_admin.nevoweb.com\511977726.nevoweb\Website\Plugins\Payments.ETransactions\&quot;&#xA;iisreset /start&#xD;&#xA;&#xD;&#xA;" />
+    <Exec Command="iisreset /stop &#xA;copy /Y &quot;$(TargetPath)&quot; &quot;D:\NEVOWEB\Websites_admin.nevoweb.com\511977726.nevoweb\Website\Plugins\Payments.ETransactions\&quot; &#xA;iisreset /start &#xD;&#xA;" />
   </Target>
 
 </Project>

@@ -47,7 +47,8 @@ Generated package:
 4. Install **ETransactions / Up2Pay**
 5. Configure values in **Admin → Configuration → Payment methods**
 
-## Required gateway settings
+## Required gateway settingsiisreset /stop
+iisreset /start
 
 Set these values from your bank/Up2Pay merchant account:
 
@@ -124,6 +125,35 @@ Testing is not currently possible on the pre-production platform.
 - Set `Preproduction = true` in plugin configuration.
 - Use your **Paybox pre-production credentials** for `PBX_SITE`, `PBX_RANG`, and `PBX_IDENTIFIANT` (not your production values).
 - Ensure `PreprodUrl` points to `https://preprod-tpeweb.paybox.com/`.
+
+## Building the Plugin
+
+Always run `dotnet` build commands from **inside the repository directory** so that `global.json` is discovered and the correct .NET 9 SDK is used.
+
+**Build and package only** (normal PowerShell, no elevation needed):
+
+```powershell
+cd D:\NEVOWEB\Project\nopCommerce\src
+dotnet msbuild "Plugins\Nevoweb.ETransactions\Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=Release
+```
+
+**Build, package, and deploy to the live website** (must run PowerShell **as Administrator** — `iisreset` requires elevation):
+
+```powershell
+cd D:\NEVOWEB\Project\nopCommerce\src
+dotnet msbuild "Plugins\Nevoweb.ETransactions\Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=Release /p:Deploy=true
+```
+
+> **Why does it compile Nop.Core, Nop.Services, etc.?**  
+> The plugin has `<ProjectReference>` entries to those libraries. MSBuild always builds dependencies before the target project. After the first full build, subsequent builds are fast because unchanged projects are skipped.
+
+> **Why this matters (SDK version):** Running `dotnet` from an unrelated directory (e.g. `C:\Users\…`) causes the CLI to miss the `global.json` at the repo root and fall back to the highest installed SDK — currently .NET 10 — which does not have the .NET 9 targeting packs. The error will look like:
+>
+> ```
+> error NETSDK1127: The targeting pack Microsoft.NETCore.App is not installed.
+> ```
+>
+> Changing into the repo directory first resolves this automatically via `rollForward: latestFeature` in `global.json`, picking `9.0.312`.
 
 ## Troubleshooting
 

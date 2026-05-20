@@ -2,31 +2,37 @@
 using Nevoweb.ETransactions.Models;
 using Nevoweb.ETransactions.Services;
 using Nop.Core;
+using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
+using Nop.Services.Catalog;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
+using Nop.Services.Logging;
 using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Web.Controllers;
 using Nop.Web.Framework.Mvc.Filters;
-using Nop.Core.Domain.Messages;
-using Nop.Services.Catalog;
-using Nop.Services.Logging;
 
 namespace Nevoweb.ETransactions.Controllers;
 
 public class ETransactionsController : BasePublicController
 {
     private readonly ILogger _logger;
+    private readonly EmailAccountSettings _emailAccountSettings;
+    private readonly MessagesSettings _messagesSettings;
     private readonly IEmailAccountService _emailAccountService;
-    private readonly IEmailSender _emailSender;
+    private readonly ILanguageService _languageService;
+    private readonly ILocalizedEntityService _localizedEntityService;
     private readonly ILocalizationService _localizationService;
+    private readonly IMessageTemplateService _messageTemplateService;
+    private readonly IMessageTokenProvider _messageTokenProvider;
     private readonly INotificationService _notificationService;
     private readonly IOrderProcessingService _orderProcessingService;
     private readonly IOrderService _orderService;
     private readonly IProductService _productService;
     private readonly IShoppingCartService _shoppingCartService;
+    private readonly IWorkflowMessageService _workflowMessageService;
     private readonly ETransactionsRequestBuilder _eTransactionsRequestBuilder;
     private readonly ETransactionsPaymentSettings _settings;
     private readonly ISettingService _settingService;
@@ -34,14 +40,20 @@ public class ETransactionsController : BasePublicController
     private readonly IWorkContext _workContext;
 
     public ETransactionsController(ILogger logger,
+        EmailAccountSettings emailAccountSettings,
+        MessagesSettings messagesSettings,
         IEmailAccountService emailAccountService,
-        IEmailSender emailSender,
+        ILanguageService languageService,
+        ILocalizedEntityService localizedEntityService,
         ILocalizationService localizationService,
+        IMessageTemplateService messageTemplateService,
+        IMessageTokenProvider messageTokenProvider,
         INotificationService notificationService,
         IOrderProcessingService orderProcessingService,
         IOrderService orderService,
         IProductService productService,
         IShoppingCartService shoppingCartService,
+        IWorkflowMessageService workflowMessageService,
         ETransactionsRequestBuilder eTransactionsRequestBuilder,
         ETransactionsPaymentSettings settings,
         ISettingService settingService,
@@ -49,14 +61,20 @@ public class ETransactionsController : BasePublicController
         IWorkContext workContext)
     {
         _logger = logger;
+        _emailAccountSettings = emailAccountSettings;
+        _messagesSettings = messagesSettings;
         _emailAccountService = emailAccountService;
-        _emailSender = emailSender;
+        _languageService = languageService;
+        _localizedEntityService = localizedEntityService;
         _localizationService = localizationService;
+        _messageTemplateService = messageTemplateService;
+        _messageTokenProvider = messageTokenProvider;
         _notificationService = notificationService;
         _orderProcessingService = orderProcessingService;
         _orderService = orderService;
         _productService = productService;
         _shoppingCartService = shoppingCartService;
+        _workflowMessageService = workflowMessageService;
         _eTransactionsRequestBuilder = eTransactionsRequestBuilder;
         _settings = settings;
         _settingService = settingService;
@@ -272,61 +290,216 @@ public class ETransactionsController : BasePublicController
     protected virtual async Task RaiseIpnMissingAlertAsync(Order order)
     {
         var store = await _storeContext.GetCurrentStoreAsync();
-        var adminUrl = $"{store.Url}Admin/Order/Edit/{order.Id}".Replace("//Admin", "/Admin");
-
-        var alertMessage =
-            $"⚠️ SECURITY ALERT — ETransactions IPN not received for Order #{order.Id}\n\n" +
-            $"The customer browser returned a SUCCESS status from the payment gateway, " +
-            $"but the bank's server-to-server IPN notification was NOT received.\n\n" +
-            $"THIS ORDER MUST BE MANUALLY VERIFIED before processing or shipping.\n\n" +
-            $"Possible causes:\n" +
-            $"  • IPN delivery failed (firewall, timeout, server down at time of payment)\n" +
-            $"  • Fraudulent browser return manipulation attempt\n\n" +
-            $"Action required:\n" +
-            $"  1. Log into your Paybox/ETransactions merchant back-office\n" +
-            $"  2. Verify that a real transaction exists for order #{order.Id} (amount: {order.OrderTotal:C})\n" +
-            $"  3. If confirmed paid → manually mark the order as Paid in the admin\n" +
-            $"  4. If NOT found → cancel the order immediately\n\n" +
-            $"Order admin link: {adminUrl}";
 
         // Write a highly visible order note
+        var orderNote = $"⚠️ SECURITY ALERT — ETransactions IPN not received for Order #{order.Id}. " +
+                        $"Customer browser returned SUCCESS but bank IPN was NOT received. " +
+                        $"THIS ORDER MUST BE MANUALLY VERIFIED in the Paybox back-office before processing or shipping.";
+
         await _orderService.InsertOrderNoteAsync(new OrderNote
         {
             OrderId = order.Id,
             CreatedOnUtc = DateTime.UtcNow,
-            Note = alertMessage,
+            Note = orderNote,
             DisplayToCustomer = false
         });
 
         // Log as Error so it appears red in Admin → System → Log
-        _logger.Error($"[ETransactions] ⚠️ SECURITY ALERT — IPN missing for Order #{order.Id}. Payment status unverified. Manual check required.\n\n{alertMessage}");
+        _logger.Error($"[ETransactions] ⚠️ SECURITY ALERT — IPN missing for Order #{order.Id}. Payment status unverified. Manual check required.");
 
-        // Send alert email to the store owner using the default email account
+        // Send via nopCommerce message template (editable in Admin → Content Management → Message templates)
         try
         {
-            var emailAccount = await _emailAccountService.GetEmailAccountByIdAsync(
-                (await _settingService.LoadSettingAsync<EmailAccountSettings>(store.Id)).DefaultEmailAccountId)
-                ?? (await _emailAccountService.GetAllEmailAccountsAsync()).FirstOrDefault();
+            _logger.Information($"[ETransactions] Looking up template '{ETransactionsPaymentDefaults.IpnMissingMessageTemplateName}' for store {store.Id} ('{store.Name}')");
 
-            if (emailAccount is not null)
+            // Resolve active templates for this store (falls back to global if none store-specific)
+            var templates = await _messageTemplateService.GetMessageTemplatesByNameAsync(
+                ETransactionsPaymentDefaults.IpnMissingMessageTemplateName, store.Id);
+
+            if (templates == null || !templates.Any())
             {
-                var subject = $"⚠️ ACTION REQUIRED — Unverified payment for Order #{order.Id} [{store.Name}]";
-                var body = alertMessage.Replace("\n", "<br/>");
+                _logger.Information($"[ETransactions] No store-specific template found, falling back to global lookup.");
+                templates = await _messageTemplateService.GetMessageTemplatesByNameAsync(
+                    ETransactionsPaymentDefaults.IpnMissingMessageTemplateName);
+            }
 
-                await _emailSender.SendEmailAsync(
+            _logger.Information($"[ETransactions] Found {templates?.Count ?? 0} template(s) before active filter.");
+
+            // Self-heal: if no template exists at all, create it now
+            if (templates == null || !templates.Any())
+            {
+                _logger.Warning($"[ETransactions] Template '{ETransactionsPaymentDefaults.IpnMissingMessageTemplateName}' not found in database — creating it now.");
+                templates = new List<MessageTemplate> { await EnsureAlertTemplateExistsAsync() };
+            }
+
+            // Only send active templates
+            var inactiveCount = templates.Count(t => !t.IsActive);
+            if (inactiveCount > 0)
+                _logger.Warning($"[ETransactions] {inactiveCount} template(s) named '{ETransactionsPaymentDefaults.IpnMissingMessageTemplateName}' exist but are INACTIVE — enable them in Admin → Content Management → Message Templates.");
+
+            templates = templates.Where(t => t.IsActive).ToList();
+
+            if (!templates.Any())
+            {
+                _logger.Warning($"[ETransactions] All matching templates are inactive — no alert email queued for Order #{order.Id}.");
+                return;
+            }
+
+            foreach (var template in templates)
+            {
+                _logger.Information($"[ETransactions] Processing template Id={template.Id}, EmailAccountId={template.EmailAccountId}, IsActive={template.IsActive}");
+
+                // Resolve email account the same way nopCommerce core does
+                var emailAccountId = template.EmailAccountId > 0
+                    ? template.EmailAccountId
+                    : _emailAccountSettings.DefaultEmailAccountId;
+
+                _logger.Information($"[ETransactions] Resolved emailAccountId={emailAccountId} (DefaultEmailAccountId={_emailAccountSettings.DefaultEmailAccountId})");
+
+                var emailAccount = await _emailAccountService.GetEmailAccountByIdAsync(emailAccountId)
+                    ?? (await _emailAccountService.GetAllEmailAccountsAsync()).FirstOrDefault();
+
+                if (emailAccount is null)
+                {
+                    _logger.Warning($"[ETransactions] No email account found (id={emailAccountId}) for IPN-missing alert, Order #{order.Id}. Configure an email account in Admin → Configuration → Email Accounts.");
+                    continue;
+                }
+
+                _logger.Information($"[ETransactions] Using email account '{emailAccount.Email}' (Id={emailAccount.Id})");
+
+                // Resolve language — prefer the store's first published language
+                var languageId = (await _languageService.GetAllLanguagesAsync(storeId: store.Id))
+                    .FirstOrDefault(l => l.Published)?.Id ?? 0;
+                if (languageId == 0)
+                    languageId = (await _languageService.GetAllLanguagesAsync())
+                        .FirstOrDefault(l => l.Published)?.Id ?? 0;
+
+                _logger.Information($"[ETransactions] Using languageId={languageId}");
+
+                // Build tokens — same set used by core order notifications
+                var tokens = new List<Token>();
+                await _messageTokenProvider.AddOrderTokensAsync(tokens, order, languageId);
+                await _messageTokenProvider.AddStoreTokensAsync(tokens, store, emailAccount, languageId);
+
+                // Resolve store-owner recipient (honours MessagesSettings.UseDefaultEmailAccountForSendStoreOwnerEmails)
+                EmailAccount ownerAccount;
+                if (_messagesSettings.UseDefaultEmailAccountForSendStoreOwnerEmails)
+                    ownerAccount = await _emailAccountService.GetEmailAccountByIdAsync(_emailAccountSettings.DefaultEmailAccountId) ?? emailAccount;
+                else
+                    ownerAccount = emailAccount;
+
+                _logger.Information($"[ETransactions] Sending alert to '{ownerAccount.Email}' (UseDefaultForOwner={_messagesSettings.UseDefaultEmailAccountForSendStoreOwnerEmails})");
+
+                var queuedId = await _workflowMessageService.SendNotificationAsync(
+                    template,
                     emailAccount,
-                    subject,
-                    body,
-                    emailAccount.Email,
-                    emailAccount.DisplayName,
-                    emailAccount.Email,
-                    store.Name);
+                    languageId,
+                    tokens,
+                    toEmailAddress: ownerAccount.Email,
+                    toName: ownerAccount.DisplayName);
+
+                _logger.Information($"[ETransactions] ✅ Alert email queued successfully. QueuedEmailId={queuedId}, Order #{order.Id}");
             }
         }
         catch (Exception ex)
         {
             _logger.Error($"[ETransactions] Failed to send IPN-missing alert email for Order #{order.Id}: {ex.Message}", ex);
         }
+    }
+
+    protected virtual async Task<MessageTemplate> EnsureAlertTemplateExistsAsync()
+    {
+        var template = new MessageTemplate
+        {
+            Name = ETransactionsPaymentDefaults.IpnMissingMessageTemplateName,
+            Subject = "⚠️ ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
+            Body = "<p><strong>⚠️ SECURITY ALERT — ETransactions IPN not received</strong></p>" +
+                   "<p>The customer browser returned a <strong>SUCCESS</strong> status from the payment gateway, " +
+                   "but the bank's server-to-server IPN notification was <strong>NOT received</strong>.</p>" +
+                   "<p><strong>THIS ORDER MUST BE MANUALLY VERIFIED before processing or shipping.</strong></p>" +
+                   "<table border='0'>" +
+                   "<tr><td><strong>Order:</strong></td><td>#%Order.OrderNumber%</td></tr>" +
+                   "<tr><td><strong>Customer:</strong></td><td>%Order.CustomerFullName% (%Order.CustomerEmail%)</td></tr>" +
+                   "<tr><td><strong>Amount:</strong></td><td>%Order.OrderTotal%</td></tr>" +
+                   "<tr><td><strong>Date:</strong></td><td>%Order.CreatedOn%</td></tr>" +
+                   "<tr><td><strong>Store:</strong></td><td>%Store.Name%</td></tr>" +
+                   "</table>" +
+                   "<br/><p><strong>Possible causes:</strong></p>" +
+                   "<ul><li>IPN delivery failed (firewall, timeout, server down at time of payment)</li>" +
+                   "<li>Fraudulent browser return manipulation attempt</li></ul>" +
+                   "<p><strong>Action required:</strong></p>" +
+                   "<ol><li>Log into your Paybox/ETransactions merchant back-office</li>" +
+                   "<li>Verify that a real transaction exists for order #%Order.OrderNumber% (amount: %Order.OrderTotal%)</li>" +
+                   "<li>If confirmed paid → manually mark the order as Paid in the admin</li>" +
+                   "<li>If NOT found → cancel the order immediately</li></ol>",
+            IsActive = true,
+            EmailAccountId = 0
+        };
+
+        await _messageTemplateService.InsertMessageTemplateAsync(template);
+
+        var languages = await _languageService.GetAllLanguagesAsync();
+        foreach (var language in languages)
+        {
+            var culture = language.LanguageCulture?.ToLowerInvariant() ?? string.Empty;
+            if (culture.StartsWith("fr"))
+            {
+                await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Subject,
+                    "⚠️ ACTION REQUISE — Paiement non vérifié pour la commande #%Order.OrderNumber% [%Store.Name%]",
+                    language.Id);
+                await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Body,
+                    "<p><strong>⚠️ ALERTE SÉCURITÉ — Notification IPN ETransactions non reçue</strong></p>" +
+                    "<p>Le navigateur du client a renvoyé un statut <strong>SUCCÈS</strong> depuis la plateforme de paiement, " +
+                    "mais la notification IPN serveur-à-serveur de la banque n'a <strong>PAS été reçue</strong>.</p>" +
+                    "<p><strong>CETTE COMMANDE DOIT ÊTRE VÉRIFIÉE MANUELLEMENT avant tout traitement ou expédition.</strong></p>" +
+                    "<table border='0'>" +
+                    "<tr><td><strong>Commande :</strong></td><td>#%Order.OrderNumber%</td></tr>" +
+                    "<tr><td><strong>Client :</strong></td><td>%Order.CustomerFullName% (%Order.CustomerEmail%)</td></tr>" +
+                    "<tr><td><strong>Montant :</strong></td><td>%Order.OrderTotal%</td></tr>" +
+                    "<tr><td><strong>Date :</strong></td><td>%Order.CreatedOn%</td></tr>" +
+                    "<tr><td><strong>Boutique :</strong></td><td>%Store.Name%</td></tr>" +
+                    "</table>" +
+                    "<br/><p><strong>Causes possibles :</strong></p>" +
+                    "<ul><li>Échec de la livraison IPN (pare-feu, délai d'attente, serveur indisponible au moment du paiement)</li>" +
+                    "<li>Tentative de manipulation frauduleuse du retour navigateur</li></ul>" +
+                    "<p><strong>Actions requises :</strong></p>" +
+                    "<ol><li>Connectez-vous à votre back-office Paybox/ETransactions</li>" +
+                    "<li>Vérifiez qu'une transaction réelle existe pour la commande #%Order.OrderNumber% (montant : %Order.OrderTotal%)</li>" +
+                    "<li>Si confirmé payé → marquez manuellement la commande comme Payée dans l'administration</li>" +
+                    "<li>Si introuvable → annulez la commande immédiatement</li></ol>",
+                    language.Id);
+            }
+            else if (culture.StartsWith("en"))
+            {
+                await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Subject,
+                    "⚠️ ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
+                    language.Id);
+                await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Body,
+                    "<p><strong>⚠️ SECURITY ALERT — ETransactions IPN not received</strong></p>" +
+                    "<p>The customer browser returned a <strong>SUCCESS</strong> status from the payment gateway, " +
+                    "but the bank's server-to-server IPN notification was <strong>NOT received</strong>.</p>" +
+                    "<p><strong>THIS ORDER MUST BE MANUALLY VERIFIED before processing or shipping.</strong></p>" +
+                    "<table border='0'>" +
+                    "<tr><td><strong>Order:</strong></td><td>#%Order.OrderNumber%</td></tr>" +
+                    "<tr><td><strong>Customer:</strong></td><td>%Order.CustomerFullName% (%Order.CustomerEmail%)</td></tr>" +
+                    "<tr><td><strong>Amount:</strong></td><td>%Order.OrderTotal%</td></tr>" +
+                    "<tr><td><strong>Date:</strong></td><td>%Order.CreatedOn%</td></tr>" +
+                    "<tr><td><strong>Store:</strong></td><td>%Store.Name%</td></tr>" +
+                    "</table>" +
+                    "<br/><p><strong>Possible causes:</strong></p>" +
+                    "<ul><li>IPN delivery failed (firewall, timeout, server down at time of payment)</li>" +
+                    "<li>Fraudulent browser return manipulation attempt</li></ul>" +
+                    "<p><strong>Action required:</strong></p>" +
+                    "<ol><li>Log into your Paybox/ETransactions merchant back-office</li>" +
+                    "<li>Verify that a real transaction exists for order #%Order.OrderNumber% (amount: %Order.OrderTotal%)</li>" +
+                    "<li>If confirmed paid → manually mark the order as Paid in the admin</li>" +
+                    "<li>If NOT found → cancel the order immediately</li></ol>",
+                    language.Id);
+            }
+        }
+
+        _logger.Information($"[ETransactions] Alert template '{ETransactionsPaymentDefaults.IpnMissingMessageTemplateName}' created automatically.");
+        return template;
     }
 
     protected virtual bool IsAllowedIp(string remoteIp, string allowedIps)
