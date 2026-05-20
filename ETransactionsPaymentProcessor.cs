@@ -140,8 +140,8 @@ public class ETransactionsPaymentProcessor : BasePlugin, IPaymentMethod
             var template = new MessageTemplate
             {
                 Name = ETransactionsPaymentDefaults.IpnMissingMessageTemplateName,
-                Subject = "⚠️ ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
-                Body = "<p><strong>⚠️ SECURITY ALERT — ETransactions IPN not received</strong></p>" +
+                Subject = "ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
+                Body = "<p><strong>SECURITY ALERT — ETransactions IPN not received</strong></p>" +
                        "<p>The customer browser returned a <strong>SUCCESS</strong> status from the payment gateway, " +
                        "but the bank's server-to-server IPN notification was <strong>NOT received</strong>.</p>" +
                        "<p><strong>THIS ORDER MUST BE MANUALLY VERIFIED before processing or shipping.</strong></p>" +
@@ -175,10 +175,10 @@ public class ETransactionsPaymentProcessor : BasePlugin, IPaymentMethod
                 if (culture.StartsWith("fr"))
                 {
                     await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Subject,
-                        "⚠️ ACTION REQUISE — Paiement non vérifié pour la commande #%Order.OrderNumber% [%Store.Name%]",
+                        "ACTION REQUISE — Paiement non vérifié pour la commande #%Order.OrderNumber% [%Store.Name%]",
                         language.Id);
                     await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Body,
-                        "<p><strong>⚠️ ALERTE SÉCURITÉ — Notification IPN ETransactions non reçue</strong></p>" +
+                        "<p><strong>ALERTE SÉCURITÉ — Notification IPN ETransactions non reçue</strong></p>" +
                         "<p>Le navigateur du client a renvoyé un statut <strong>SUCCÈS</strong> depuis la plateforme de paiement, " +
                         "mais la notification IPN serveur-à-serveur de la banque n'a <strong>PAS été reçue</strong>.</p>" +
                         "<p><strong>CETTE COMMANDE DOIT ÊTRE VÉRIFIÉE MANUELLEMENT avant tout traitement ou expédition.</strong></p>" +
@@ -203,10 +203,10 @@ public class ETransactionsPaymentProcessor : BasePlugin, IPaymentMethod
                 {
                     // English is the default template body — save explicitly so it is always set
                     await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Subject,
-                        "⚠️ ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
+                        "ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
                         language.Id);
                     await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Body,
-                        "<p><strong>⚠️ SECURITY ALERT — ETransactions IPN not received</strong></p>" +
+                        "<p><strong>SECURITY ALERT — ETransactions IPN not received</strong></p>" +
                         "<p>The customer browser returned a <strong>SUCCESS</strong> status from the payment gateway, " +
                         "but the bank's server-to-server IPN notification was <strong>NOT received</strong>.</p>" +
                         "<p><strong>THIS ORDER MUST BE MANUALLY VERIFIED before processing or shipping.</strong></p>" +

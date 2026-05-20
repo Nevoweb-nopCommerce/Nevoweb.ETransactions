@@ -29,10 +29,11 @@ nopCommerce payment plugin for **ETransactions / Up2Pay** (PBX gateway).
 
 ## Build installation package
 
-Run in PowerShell / Command Prompt:
+Run in PowerShell / Command Prompt **from inside the project directory** (so `global.json` is discovered and .NET 9 SDK is used):
 
-```bash
-dotnet msbuild "D:\NEVOWEB\Project\nopCommerce\src\Plugins\Nevoweb.ETransactions\Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=Release
+```powershell
+cd "D:\NEVOWEB\Project\nopCommerce\src\Plugins\Nevoweb.ETransactions"
+dotnet msbuild "Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=Release
 ```
 
 Generated package:
@@ -133,15 +134,15 @@ Always run `dotnet` build commands from **inside the repository directory** so t
 **Build and package only** (normal PowerShell, no elevation needed):
 
 ```powershell
-cd D:\NEVOWEB\Project\nopCommerce\src
-dotnet msbuild "Plugins\Nevoweb.ETransactions\Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=Release
+cd "D:\NEVOWEB\Project\nopCommerce\src\Plugins\Nevoweb.ETransactions"
+dotnet msbuild "Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=Release
 ```
 
 **Build, package, and deploy to the live website** (must run PowerShell **as Administrator** — `iisreset` requires elevation):
 
 ```powershell
-cd D:\NEVOWEB\Project\nopCommerce\src
-dotnet msbuild "Plugins\Nevoweb.ETransactions\Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=Release /p:Deploy=true
+cd "D:\NEVOWEB\Project\nopCommerce\src\Plugins\Nevoweb.ETransactions"
+dotnet msbuild "Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=Release /p:Deploy=true
 ```
 
 > **Why does it compile Nop.Core, Nop.Services, etc.?**  
