@@ -292,7 +292,7 @@ public class ETransactionsController : BasePublicController
         var store = await _storeContext.GetCurrentStoreAsync();
 
         // Write a highly visible order note
-        var orderNote = $"⚠️ SECURITY ALERT — ETransactions IPN not received for Order #{order.Id}. " +
+        var orderNote = $"SECURITY ALERT — ETransactions IPN not received for Order #{order.Id}. " +
                         $"Customer browser returned SUCCESS but bank IPN was NOT received. " +
                         $"THIS ORDER MUST BE MANUALLY VERIFIED in the Paybox back-office before processing or shipping.";
 
@@ -305,7 +305,7 @@ public class ETransactionsController : BasePublicController
         });
 
         // Log as Error so it appears red in Admin → System → Log
-        _logger.Error($"[ETransactions] ⚠️ SECURITY ALERT — IPN missing for Order #{order.Id}. Payment status unverified. Manual check required.");
+        _logger.Error($"[ETransactions] SECURITY ALERT — IPN missing for Order #{order.Id}. Payment status unverified. Manual check required.");
 
         // Send via nopCommerce message template (editable in Admin → Content Management → Message templates)
         try
@@ -398,7 +398,7 @@ public class ETransactionsController : BasePublicController
                     toEmailAddress: ownerAccount.Email,
                     toName: ownerAccount.DisplayName);
 
-                _logger.Information($"[ETransactions] ✅ Alert email queued successfully. QueuedEmailId={queuedId}, Order #{order.Id}");
+                _logger.Information($"[ETransactions] Alert email queued successfully. QueuedEmailId={queuedId}, Order #{order.Id}");
             }
         }
         catch (Exception ex)
@@ -412,8 +412,8 @@ public class ETransactionsController : BasePublicController
         var template = new MessageTemplate
         {
             Name = ETransactionsPaymentDefaults.IpnMissingMessageTemplateName,
-            Subject = "⚠️ ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
-            Body = "<p><strong>⚠️ SECURITY ALERT — ETransactions IPN not received</strong></p>" +
+            Subject = "ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
+            Body = "<p><strong>SECURITY ALERT — ETransactions IPN not received</strong></p>" +
                    "<p>The customer browser returned a <strong>SUCCESS</strong> status from the payment gateway, " +
                    "but the bank's server-to-server IPN notification was <strong>NOT received</strong>.</p>" +
                    "<p><strong>THIS ORDER MUST BE MANUALLY VERIFIED before processing or shipping.</strong></p>" +
@@ -429,7 +429,7 @@ public class ETransactionsController : BasePublicController
                    "<li>Fraudulent browser return manipulation attempt</li></ul>" +
                    "<p><strong>Action required:</strong></p>" +
                    "<ol><li>Log into your Paybox/ETransactions merchant back-office</li>" +
-                   "<li>Verify that a real transaction exists for order #%Order.OrderNumber% (amount: %Order.OrderTotal%)</li>" +
+                   "<li>Verify that a real transaction exists for order #%Order.OrderNumber% </li>" +
                    "<li>If confirmed paid → manually mark the order as Paid in the admin</li>" +
                    "<li>If NOT found → cancel the order immediately</li></ol>",
             IsActive = true,
@@ -445,10 +445,10 @@ public class ETransactionsController : BasePublicController
             if (culture.StartsWith("fr"))
             {
                 await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Subject,
-                    "⚠️ ACTION REQUISE — Paiement non vérifié pour la commande #%Order.OrderNumber% [%Store.Name%]",
+                    "ACTION REQUISE — Paiement non vérifié pour la commande #%Order.OrderNumber% [%Store.Name%]",
                     language.Id);
                 await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Body,
-                    "<p><strong>⚠️ ALERTE SÉCURITÉ — Notification IPN ETransactions non reçue</strong></p>" +
+                    "<p><strong>ALERTE SÉCURITÉ — Notification IPN ETransactions non reçue</strong></p>" +
                     "<p>Le navigateur du client a renvoyé un statut <strong>SUCCÈS</strong> depuis la plateforme de paiement, " +
                     "mais la notification IPN serveur-à-serveur de la banque n'a <strong>PAS été reçue</strong>.</p>" +
                     "<p><strong>CETTE COMMANDE DOIT ÊTRE VÉRIFIÉE MANUELLEMENT avant tout traitement ou expédition.</strong></p>" +
@@ -464,7 +464,7 @@ public class ETransactionsController : BasePublicController
                     "<li>Tentative de manipulation frauduleuse du retour navigateur</li></ul>" +
                     "<p><strong>Actions requises :</strong></p>" +
                     "<ol><li>Connectez-vous à votre back-office Paybox/ETransactions</li>" +
-                    "<li>Vérifiez qu'une transaction réelle existe pour la commande #%Order.OrderNumber% (montant : %Order.OrderTotal%)</li>" +
+                    "<li>Vérifiez qu'une transaction réelle existe pour la commande #%Order.OrderNumber% </li>" +
                     "<li>Si confirmé payé → marquez manuellement la commande comme Payée dans l'administration</li>" +
                     "<li>Si introuvable → annulez la commande immédiatement</li></ol>",
                     language.Id);
@@ -472,10 +472,10 @@ public class ETransactionsController : BasePublicController
             else if (culture.StartsWith("en"))
             {
                 await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Subject,
-                    "⚠️ ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
+                    "ACTION REQUIRED — Unverified payment for Order #%Order.OrderNumber% [%Store.Name%]",
                     language.Id);
                 await _localizedEntityService.SaveLocalizedValueAsync(template, t => t.Body,
-                    "<p><strong>⚠️ SECURITY ALERT — ETransactions IPN not received</strong></p>" +
+                    "<p><strong>SECURITY ALERT — ETransactions IPN not received</strong></p>" +
                     "<p>The customer browser returned a <strong>SUCCESS</strong> status from the payment gateway, " +
                     "but the bank's server-to-server IPN notification was <strong>NOT received</strong>.</p>" +
                     "<p><strong>THIS ORDER MUST BE MANUALLY VERIFIED before processing or shipping.</strong></p>" +
@@ -491,7 +491,7 @@ public class ETransactionsController : BasePublicController
                     "<li>Fraudulent browser return manipulation attempt</li></ul>" +
                     "<p><strong>Action required:</strong></p>" +
                     "<ol><li>Log into your Paybox/ETransactions merchant back-office</li>" +
-                    "<li>Verify that a real transaction exists for order #%Order.OrderNumber% (amount: %Order.OrderTotal%)</li>" +
+                    "<li>Verify that a real transaction exists for order #%Order.OrderNumber% </li>" +
                     "<li>If confirmed paid → manually mark the order as Paid in the admin</li>" +
                     "<li>If NOT found → cancel the order immediately</li></ol>",
                     language.Id);
