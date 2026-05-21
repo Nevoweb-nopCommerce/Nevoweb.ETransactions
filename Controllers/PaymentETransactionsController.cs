@@ -58,7 +58,8 @@ public class PaymentETransactionsController : BasePaymentController
             Preproduction = settings.Preproduction,
             DebugMode = settings.DebugMode,
             ValidateSourceIp = settings.ValidateSourceIp,
-            AllowedIps = settings.AllowedIps
+            AllowedIps = settings.AllowedIps,
+            ValidateRsaSignature = settings.ValidateRsaSignature
         };
 
         if (storeScope > 0)
@@ -81,6 +82,7 @@ public class PaymentETransactionsController : BasePaymentController
             model.DebugMode_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.DebugMode, storeScope);
             model.ValidateSourceIp_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.ValidateSourceIp, storeScope);
             model.AllowedIps_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.AllowedIps, storeScope);
+            model.ValidateRsaSignature_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.ValidateRsaSignature, storeScope);
         }
 
         return View("~/Plugins/Payments.ETransactions/Views/Configure.cshtml", model);
@@ -114,6 +116,7 @@ public class PaymentETransactionsController : BasePaymentController
         settings.DebugMode = model.DebugMode;
         settings.ValidateSourceIp = model.ValidateSourceIp;
         settings.AllowedIps = model.AllowedIps;
+        settings.ValidateRsaSignature = model.ValidateRsaSignature;
 
         await _settingService.SaveSettingOverridablePerStoreAsync(settings, x => x.DescriptionText, model.DescriptionText_OverrideForStore, storeScope, false);
         await _settingService.SaveSettingOverridablePerStoreAsync(settings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, false);
@@ -133,6 +136,7 @@ public class PaymentETransactionsController : BasePaymentController
         await _settingService.SaveSettingOverridablePerStoreAsync(settings, x => x.DebugMode, model.DebugMode_OverrideForStore, storeScope, false);
         await _settingService.SaveSettingOverridablePerStoreAsync(settings, x => x.ValidateSourceIp, model.ValidateSourceIp_OverrideForStore, storeScope, false);
         await _settingService.SaveSettingOverridablePerStoreAsync(settings, x => x.AllowedIps, model.AllowedIps_OverrideForStore, storeScope, false);
+        await _settingService.SaveSettingOverridablePerStoreAsync(settings, x => x.ValidateRsaSignature, model.ValidateRsaSignature_OverrideForStore, storeScope, false);
 
         await _settingService.ClearCacheAsync();
         _notificationService.SuccessNotification("Saved");

@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -83,7 +84,47 @@ public class ETransactionsRequestBuilder
         if (!value.Contains("call:", StringComparison.OrdinalIgnoreCase))
             value += ";call:T";
 
+        // Always request RSA signature on IPN callback
+        if (!value.Contains("sign:", StringComparison.OrdinalIgnoreCase))
+            value += ";sign:K";
+
         return value.Trim(';');
+    }
+
+    /// <summary>
+    /// Verifies the RSA-SHA1 signature sent by ETransactions on IPN callbacks.
+    /// </summary>
+    /// <param name="message">All IPN params except "sign", joined as key=value&amp;key=value in received order.</param>
+    /// <param name="base64Signature">The raw value of the "sign" parameter (base64-encoded).</param>
+    public virtual bool VerifyIpnSignature(string message, string base64Signature)
+    {
+        try
+        {
+            // Key files are in the etc/ folder alongside the plugin.
+            // pubkey.pem          = RSA-1024, pre-production  (matches PHP module kit naming)
+            // pubkey_RSA_2048.pem = RSA-2048, production      (matches PHP module kit naming)
+            var pemFileName = _settings.Preproduction
+                ? ETransactionsPaymentDefaults.IpnPublicKeyPreproductionFile
+                : ETransactionsPaymentDefaults.IpnPublicKeyProductionFile;
+            var pemPath = Path.Combine(AppContext.BaseDirectory, "Plugins", "Payments.ETransactions", "etc", pemFileName);
+            var publicKeyPem = File.ReadAllText(pemPath);
+
+            var signatureBytes = Convert.FromBase64String(base64Signature);
+            var messageBytes = Encoding.UTF8.GetBytes(message);
+
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(publicKeyPem);
+
+            return rsa.VerifyData(
+                messageBytes,
+                signatureBytes,
+                HashAlgorithmName.SHA1,
+                RSASignaturePadding.Pkcs1);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     protected virtual async Task<string> BuildBillingXmlAsync(Address billingAddress)

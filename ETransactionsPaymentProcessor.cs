@@ -256,6 +256,8 @@ public class ETransactionsPaymentProcessor : BasePlugin, IPaymentMethod
             ["Plugins.Payment.ETransactions.ValidateSourceIp"] = "Validate callback source IP",
             ["Plugins.Payment.ETransactions.AllowedIps"] = "Allowed callback IPs",
             ["Plugins.Payment.ETransactions.AllowedIps.Hint"] = "Comma separated list of IPs allowed for callback notifications.",
+            ["Plugins.Payment.ETransactions.ValidateRsaSignature"] = "RSA Validation for IPN",
+            ["Plugins.Payment.ETransactions.ValidateRsaSignature.Hint"] = "When enabled, the RSA-SHA1 signature from the gateway IPN 'sign' parameter is verified. Disable only for troubleshooting — never in production.",
             ["Plugins.Payment.ETransactions.PaymentFailed"] = "The payment was refused or canceled.",
             ["Plugins.Payment.ETransactions.PaymentPending"] = "Your payment is being validated by ETransactions / Up2Pay."
         });

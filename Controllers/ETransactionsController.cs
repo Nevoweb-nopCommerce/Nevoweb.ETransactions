@@ -201,6 +201,30 @@ public class ETransactionsController : BasePublicController
                 parameters[pair.Key] = pair.Value.ToString();
         }
 
+        // RSA signature verification — must be done before any order lookup
+        if (_settings.ValidateRsaSignature)
+        {
+            if (!parameters.TryGetValue("sign", out var sign) || string.IsNullOrWhiteSpace(sign))
+            {
+                _logger.Warning("[ETransactions] IPN rejected: missing 'sign' parameter.");
+                return Content("KO", "text/plain");
+            }
+
+            var signedMessage = string.Join("&", parameters
+                .Where(kv => kv.Key != "sign")
+                .Select(kv => $"{kv.Key}={kv.Value}"));
+
+            if (!_eTransactionsRequestBuilder.VerifyIpnSignature(signedMessage, sign))
+            {
+                _logger.Warning($"[ETransactions] IPN rejected: invalid RSA signature. Message: {signedMessage}");
+                return Content("KO", "text/plain");
+            }
+        }
+        else
+        {
+            _logger.Warning("[ETransactions] IPN RSA signature validation is DISABLED via settings. This is not recommended in production.");
+        }
+
         if (!parameters.TryGetValue("ref", out var refValue) || !int.TryParse(refValue, out var orderId))
             return Content("KO", "text/plain");
 

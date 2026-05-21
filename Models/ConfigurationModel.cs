@@ -78,4 +78,8 @@ public record ConfigurationModel : BaseNopModel
     [NopResourceDisplayName("Plugins.Payment.ETransactions.AllowedIps")]
     public string AllowedIps { get; set; }
     public bool AllowedIps_OverrideForStore { get; set; }
+
+    [NopResourceDisplayName("Plugins.Payment.ETransactions.ValidateRsaSignature")]
+    public bool ValidateRsaSignature { get; set; }
+    public bool ValidateRsaSignature_OverrideForStore { get; set; }
 }

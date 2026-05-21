@@ -25,4 +25,10 @@ public class ETransactionsPaymentSettings : ISettings
     public bool DebugMode { get; set; }
     public bool ValidateSourceIp { get; set; }
     public string AllowedIps { get; set; }
+
+    /// <summary>
+    /// When true (default), the RSA-SHA1 signature from the gateway IPN 'sign' parameter is verified.
+    /// Disable only for troubleshooting — never in production.
+    /// </summary>
+    public bool ValidateRsaSignature { get; set; } = true;
 }
