@@ -153,7 +153,38 @@ dotnet msbuild "Nevoweb.ETransactions.csproj" /t:PackagePlugin /p:Configuration=
 >
 > Changing into the repo directory first resolves this automatically via `rollForward: latestFeature` in `global.json`, picking `9.0.312`.
 
-## Troubleshooting
+## IPN Security — RSA Signature Verification
+
+The gateway signs each server-to-server IPN callback with an RSA-SHA1 signature sent in the `sign` parameter. The plugin verifies this signature **before** any order state change is made.
+
+### How it works
+
+- The `PBX_RETOUR` field always includes `sign:K` so the gateway returns the signature.
+- On each IPN call the plugin reconstructs the signed message (all parameters except `sign`, in received order) and verifies it against the gateway's public key.
+- If the signature is missing or invalid the callback is rejected with `KO` and logged.
+
+### Public key files
+
+The RSA public keys must be placed in:
+
+```
+Plugins/Payments.ETransactions/etc/pubkey.pem           ← RSA-1024, pre-production
+Plugins/Payments.ETransactions/etc/pubkey_RSA_2048.pem  ← RSA-2048, production
+```
+
+**Source:** Download the official PHP module from the gateway portal — the `etc/` folder inside the archive contains both PEM files:
+
+> 🔗 [Download PHP module — CA Mon Commerce / Up2Pay E-Transactions](https://www.ca-moncommerce.com/espace-client-mon-commerce/up2pay-e-transactions/telecharger-mes-modules/php/)
+
+The files shipped with this plugin are a copy of those keys. If the gateway ever rotates its keys, replace the PEM files and redeploy — **no recompile is needed**.
+
+### Disabling RSA validation (troubleshooting only)
+
+A toggle is available in **Admin → Configuration → Payment methods → ETransactions → RSA Validation for IPN**.
+
+> ⚠️ **Never disable RSA validation in production.** An attacker could send a forged IPN and trigger order state changes without a real payment.
+
+
 
 - **Upload error about archive structure**
   - The zip must contain a single root plugin directory: `Payments.ETransactions`.
