@@ -8,6 +8,7 @@ using Nop.Core.Domain.Orders;
 using Nop.Services.Common;
 using Nop.Services.Directory;
 using Nop.Services.Installation;
+using Nop.Services.Orders;
 
 namespace Nevoweb.ETransactions.Services;
 
@@ -16,6 +17,7 @@ public class ETransactionsRequestBuilder
     private readonly IAddressService _addressService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICountryService _countryService;
+    private readonly IOrderService _orderService;
     private readonly ETransactionsPaymentSettings _settings;
 
     public ETransactionsRequestBuilder(IAddressService addressService,
@@ -33,7 +35,7 @@ public class ETransactionsRequestBuilder
     {
         var billingAddress = await _addressService.GetAddressByIdAsync(order.BillingAddressId);
         var amount = ((int)Math.Round(order.OrderTotal * 100m, MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture);
-        var pbxTime = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+        var pbxTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
 
         var values = new Dictionary<string, string>
         {
@@ -51,7 +53,7 @@ public class ETransactionsRequestBuilder
             ["PBX_HASH"] = "SHA512",
             ["PBX_TIME"] = pbxTime,
             ["PBX_RETOUR"] = BuildRetourValue(),
-            ["PBX_SHOPPINGCART"] = "<?xml version='1.0' encoding='utf-8'?><shoppingcart><total><totalQuantity>1</totalQuantity></total></shoppingcart>",
+            ["PBX_SHOPPINGCART"] = await BuildShoppingCartXmlAsync(order),
             ["PBX_BILLING"] = await BuildBillingXmlAsync(billingAddress)
         };
 
@@ -65,6 +67,22 @@ public class ETransactionsRequestBuilder
         values["PBX_HMAC"] = ComputeHmac(values, _settings.HmacKey);
 
         return (await GetPostUrlAsync(), values);
+    }
+    /// <summary>
+    /// Builds the PBX_SHOPPINGCART XML payload from the order's actual item quantities.
+    /// Per the e-Transactions manual, <totalQuantity> must reflect the real number of units
+    /// purchased (sum of all order line quantities), not a hardcoded placeholder.
+    /// </summary>
+    protected virtual async Task<string> BuildShoppingCartXmlAsync(Order order)
+    {
+        var orderItems = await _orderService.GetOrderItemsAsync(order.Id);
+        var totalQuantity = orderItems.Sum(oi => oi.Quantity);
+
+        // Guard against empty carts (should not normally happen at this stage)
+        if (totalQuantity <= 0)
+            totalQuantity = 1;
+
+        return $"<?xml version='1.0' encoding='utf-8'?><shoppingcart><total><totalQuantity>{totalQuantity}</totalQuantity></total></shoppingcart>";
     }
 
     protected virtual string BuildRetourValue()

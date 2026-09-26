@@ -193,3 +193,19 @@ A toggle is available in **Admin → Configuration → Payment methods → ETran
   - Check PBX identifiers and HMAC key.
 - **Callback rejected**
   - If IP validation is enabled, ensure gateway IPs are included in allowed list.
+
+
+# Recommended "always required" billing fields
+
+| Field | Usually Required | Notes |
+|---|---|---|
+| Billing first name | Yes | Cardholder identity |
+| Billing last name | Yes | Cardholder identity |
+| Billing address line 1 | Yes | Street + number |
+| Billing city | Yes | Used in fraud/3DS checks |
+| Billing postal/ZIP code | Yes | Frequently checked |
+| Billing country | Yes | ISO country code preferred |
+| Billing email | Yes | Receipts + risk checks |
+| Billing phone | Often | Required by some PSPs/methods |
+| State/province | Conditional | Required for US/CA/IN addresses |
+| Address line 2 | Optional | Apartment/building/etc
